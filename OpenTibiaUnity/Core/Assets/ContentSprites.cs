@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Drawing;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace OpenTibiaUnity.Core.Assets
 {
@@ -64,12 +65,12 @@ namespace OpenTibiaUnity.Core.Assets
             SpritesOffset = m_BinaryReader.Position;
         }
 
-        public Bitmap GetSprite(uint id) {
+        public Image<Rgba32> GetSprite(uint id) {
             lock (m_BinaryReader)
                 return RawGetSprite(id);
         }
 
-        private Bitmap RawGetSprite(uint id) {
+        private Image<Rgba32> RawGetSprite(uint id) {
             if (id == 0 || m_BinaryReader == null)
                 return null;
             
@@ -88,49 +89,25 @@ namespace OpenTibiaUnity.Core.Assets
             int read = 0;
             byte channels = (byte)(m_UseAlpha ? 4 : 3);
 
-            Bitmap bitmap = new Bitmap(32, 32);
-            Color transparentColor = Color.Transparent;
+            var pixels = new byte[4096]; // 32x32 RGBA, zero-initialized = transparent
 
             while (read < pixelDataSize && writePos < 4096) {
                 ushort transparentPixels = m_BinaryReader.ReadUnsignedShort();
                 ushort coloredPixels = m_BinaryReader.ReadUnsignedShort();
 
-                for (int i = 0; i < transparentPixels && writePos < 4096; i++) {
-                    int pixel = writePos / 4;
-                    int x = pixel % 32;
-                    int y = pixel / 32;
-
-                    bitmap.SetPixel(x, y, transparentColor);
-                    writePos += 4;
-                }
+                writePos += Math.Min(transparentPixels * 4, 4096 - writePos);
 
                 for (int i = 0; i < coloredPixels && writePos < 4096; i++) {
-                    int r = m_BinaryReader.ReadUnsignedByte();
-                    int g = m_BinaryReader.ReadUnsignedByte();
-                    int b = m_BinaryReader.ReadUnsignedByte();
-                    int a = m_UseAlpha ? m_BinaryReader.ReadUnsignedByte() : 0xFF;
-
-                    int pixel = writePos / 4;
-                    int x = pixel % 32;
-                    int y = pixel / 32;
-
-                    bitmap.SetPixel(x, y, Color.FromArgb(a, r, g, b));
-                    writePos += 4;
+                    pixels[writePos++] = m_BinaryReader.ReadUnsignedByte();
+                    pixels[writePos++] = m_BinaryReader.ReadUnsignedByte();
+                    pixels[writePos++] = m_BinaryReader.ReadUnsignedByte();
+                    pixels[writePos++] = m_UseAlpha ? m_BinaryReader.ReadUnsignedByte() : (byte)0xFF;
                 }
 
                 read += 4 + (channels * coloredPixels);
             }
 
-            while (writePos < 4096) {
-                int pixel = writePos / 4;
-                int x = pixel % 32;
-                int y = pixel / 32;
-
-                bitmap.SetPixel(x, y, transparentColor);
-                writePos += 4;
-            }
-
-            return bitmap;
+            return Image.LoadPixelData<Rgba32>(pixels, 32, 32);
         }
     }
 }

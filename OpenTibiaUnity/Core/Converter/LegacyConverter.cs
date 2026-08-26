@@ -4,10 +4,11 @@ using OpenTibiaUnity.Core.Metaflags;
 using OpenTibiaUnity.Protobuf.Appearances;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace OpenTibiaUnity.Core.Converter
 {
@@ -15,7 +16,7 @@ namespace OpenTibiaUnity.Core.Converter
     // to fit the purpose and didn't gave much care about style
     public class LegacyConverter : IConverter
     {
-        public delegate void DrawBitmapsDelegate(AsyncGraphics gfx, Bitmap[] bitmaps, int x = 0, int y = 0);
+        public delegate void DrawBitmapsDelegate(AsyncGraphics gfx, Image<Rgba32>[] bitmaps, int x = 0, int y = 0);
 
         private struct FrameGroupDetail
         {
@@ -259,8 +260,14 @@ namespace OpenTibiaUnity.Core.Converter
             SaveSprites(appearances.Effects, ref start, contentSprites);
             SaveSprites(appearances.Missles, ref start, contentSprites);
             SaveSprites(appearances.Objects, ref start, contentSprites);
-            
-            await Task.WhenAll(m_Tasks.ToArray());
+
+            // running tasks queue further save tasks into m_Tasks; drain until none are left pending
+            while (true) {
+                List<Task> pending;
+                lock (m_Tasks) pending = m_Tasks.FindAll(t => !t.IsCompleted);
+                if (pending.Count == 0) break;
+                await Task.WhenAll(pending);
+            }
             Console.WriteLine("\rProcessing Spritesheets: Done!");
 
             // saving appearances.dat (with the respective version)
@@ -299,14 +306,23 @@ namespace OpenTibiaUnity.Core.Converter
             return m_SpriteSheet;
         }
 
-        static void DrawBitmap32x32From1_32x32(AsyncGraphics gfx, Bitmap[] bitmaps, int x = 0, int y = 0) {
+        // m_Tasks and m_SpriteSheet are appended from concurrent worker tasks
+        private void AddTask(Task task) {
+            lock (m_Tasks) m_Tasks.Add(task);
+        }
+
+        private void AddSpriteSheet(SpriteTypeImpl spriteType) {
+            lock (m_SpriteSheet) m_SpriteSheet.Add(spriteType);
+        }
+
+        static void DrawBitmap32x32From1_32x32(AsyncGraphics gfx, Image<Rgba32>[] bitmaps, int x = 0, int y = 0) {
             /*
              * Fill: 1
             */
 
             if (bitmaps[0] != null) gfx.DrawImage(bitmaps[0], x, y, 32, 32);
         }
-        static void DrawBitmap64x32From2_32x32(AsyncGraphics gfx, Bitmap[] bitmaps, int x = 0, int y = 0) {
+        static void DrawBitmap64x32From2_32x32(AsyncGraphics gfx, Image<Rgba32>[] bitmaps, int x = 0, int y = 0) {
             /*
              * Left: 2
              * Right: 1
@@ -315,7 +331,7 @@ namespace OpenTibiaUnity.Core.Converter
             if (bitmaps[1] != null) gfx.DrawImage(bitmaps[1], x, y, 32, 32);
             if (bitmaps[0] != null) gfx.DrawImage(bitmaps[0], x + 32, y, 32, 32);
         }
-        static void DrawBitmap32x64From2_32x32(AsyncGraphics gfx, Bitmap[] bitmaps, int x = 0, int y = 0) {
+        static void DrawBitmap32x64From2_32x32(AsyncGraphics gfx, Image<Rgba32>[] bitmaps, int x = 0, int y = 0) {
             /*
              * Top: 2
              * Bottom: 1
@@ -324,7 +340,7 @@ namespace OpenTibiaUnity.Core.Converter
             if (bitmaps[1] != null) gfx.DrawImage(bitmaps[1], x, y, 32, 32);
             if (bitmaps[0] != null) gfx.DrawImage(bitmaps[0], x, y + 32, 32, 32);
         }
-        static void DrawBitmap64x64From4_32x32(AsyncGraphics gfx, Bitmap[] bitmaps, int x = 0, int y = 0) {
+        static void DrawBitmap64x64From4_32x32(AsyncGraphics gfx, Image<Rgba32>[] bitmaps, int x = 0, int y = 0) {
             /*
              * Topleft: 4
              * TopRight: 3
@@ -341,12 +357,12 @@ namespace OpenTibiaUnity.Core.Converter
         private void InternalSaveStaticBitmaps(RepeatedField<uint> sprites, DrawBitmapsDelegate drawFunc, int parts, int spriteType, int localStart, Assets.ContentSprites sprParser, int width, int height) {
             int singleSize = width * height;
 
-            AsyncGraphics gfx = new AsyncGraphics(new Bitmap(Program.SEGMENT_DIMENTION, Program.SEGMENT_DIMENTION));
+            AsyncGraphics gfx = new AsyncGraphics(new Image<Rgba32>(Program.SEGMENT_DIMENTION, Program.SEGMENT_DIMENTION));
             string filename;
 
             int x = 0, y = 0, z = 0;
             for (int i = 0; i < sprites.Count;) {
-                Bitmap[] bitmapParts = new Bitmap[parts];
+                Image<Rgba32>[] bitmapParts = new Image<Rgba32>[parts];
                 for (int m = 0; m < parts; m++) {
                     if (i + m >= sprites.Count)
                         break;
@@ -356,9 +372,9 @@ namespace OpenTibiaUnity.Core.Converter
 
                 if (y >= Program.SEGMENT_DIMENTION) {
                     filename = string.Format("sprites-{0}-{1}.png", localStart, localStart + (Program.BITMAP_SIZE / singleSize) - 1);
-                    m_Tasks.Add(gfx.SaveAndDispose(Path.Combine(m_ClientVersion.ToString(), "result", "sprites", filename)));
+                    AddTask(gfx.SaveAndDispose(Path.Combine(m_ClientVersion.ToString(), "result", "sprites", filename)));
 
-                    m_SpriteSheet.Add(new SpriteTypeImpl() {
+                    AddSpriteSheet(new SpriteTypeImpl() {
                         File = filename,
                         SpriteType = spriteType,
                         FirstSpriteID = (uint)localStart,
@@ -367,13 +383,13 @@ namespace OpenTibiaUnity.Core.Converter
 
                     localStart += Program.BITMAP_SIZE / singleSize;
 
-                    gfx = new AsyncGraphics(new Bitmap(Program.SEGMENT_DIMENTION, Program.SEGMENT_DIMENTION));
+                    gfx = new AsyncGraphics(new Image<Rgba32>(Program.SEGMENT_DIMENTION, Program.SEGMENT_DIMENTION));
                     x = y = z = 0;
                 }
 
                 var tmpSmallBitmaps = bitmapParts;
                 drawFunc(gfx, bitmapParts, x, y);
-                m_Tasks.Add(gfx.DisposeOnDone(bitmapParts));
+                AddTask(gfx.DisposeOnDone(bitmapParts));
 
                 x += width;
                 if (x >= Program.SEGMENT_DIMENTION) {
@@ -391,9 +407,9 @@ namespace OpenTibiaUnity.Core.Converter
             // save the last gfx
             int end = localStart + z;
             filename = string.Format("sprites-{0}-{1}.png", localStart, end - 1);
-            m_Tasks.Add(gfx.SaveAndDispose(Path.Combine(m_ClientVersion.ToString(), "result", "sprites", filename)));
+            AddTask(gfx.SaveAndDispose(Path.Combine(m_ClientVersion.ToString(), "result", "sprites", filename)));
 
-            m_SpriteSheet.Add(new SpriteTypeImpl() {
+            AddSpriteSheet(new SpriteTypeImpl() {
                 File = filename,
                 SpriteType = spriteType,
                 FirstSpriteID = (uint)localStart,
@@ -430,7 +446,7 @@ namespace OpenTibiaUnity.Core.Converter
             int localStart = start;
             start += sprites.Count / parts;
             
-            m_Tasks.Add(m_TaskFactory.StartNew(() => InternalSaveStaticBitmaps(sprites, drawFunc, parts, spritetype, localStart, sprParser, width, height)));
+            AddTask(m_TaskFactory.StartNew(() => InternalSaveStaticBitmaps(sprites, drawFunc, parts, spritetype, localStart, sprParser, width, height)));
         }
 
         private void SaveSprites(RepeatedField<Appearance> appearances, ref int start, Assets.ContentSprites sprParser) {

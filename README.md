@@ -1,30 +1,26 @@
 # opentibiaunity-datspr-converter
 
-### Installing Packages
-I've noticed that dlls are not uploaded (gitignore), consider getting them manually.
+### Building
 
-https://www.nuget.org/packages/Google.Protobuf  
-https://www.nuget.org/packages/Newtonsoft.Json/
+Requires the .NET SDK 8.0 or later (Linux, macOS or Windows). Dependencies are restored from NuGet on build; none are Windows-specific.
 
-```cmd
-Install-Package Google.Protobuf -Version 3.6.0
-Install-Package Newtonsoft.Json -Version 11.0.2
+```sh
+dotnet build -c Release opentibiaunity_datspr_converter.csproj
 ```
 
 ### How to use?
 
-Put tibia.dat, tibia.spr alongside within the application and start it
-Once it finishes, appearancesXXX.dat, catalog-content.json and sprites folder will have been generated.
+For legacy clients (< 11), put Tibia.dat and Tibia.spr in a directory named after the client version (e.g. `1098/Tibia.dat`) alongside the application. For Tibia 11+ clients, put the client assets (catalog-content.json, appearances and sprite files) in `<version>/<build-version>/assets`. The converted appearances.otud and assets.otus are written to a `result` directory.
 
 #### Available Options
 | Option   |      Usage    |
 |----------|:-------------:|
 | --version* |  specify the version of the client |
-| --dat* |    specify the relative location of the dat file   |
-| --spr* | specify the relative location of the spr file |
+| --build-version | specify the build version of the client (required for 11+) |
 | --alpha | specify whether to use transparency channel or not |
+| --convert-to | convert Tibia.dat/Tibia.spr to another client version instead |
 
 > Note, options with `*` are required.
 
 #### Example
-``./opentibiaunity_datspr_converter --version=1098 --dat=Tibia.dat --spr=Tibia.spr``
+``./bin/Release/net8.0/opentibiaunity_datspr_converter --version=1098 --alpha=1``

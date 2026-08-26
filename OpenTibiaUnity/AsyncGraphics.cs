@@ -1,23 +1,23 @@
-﻿using System.Collections.Generic;
-using System.Drawing;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace OpenTibiaUnity
 {
     public class AsyncGraphics
     {
-        Bitmap m_Bitmap;
-        Graphics m_Graphics;
+        Image<Rgba32> m_Image;
         List<Task> m_DrawTasks = new List<Task>();
 
         // mutex
         object m_DrawLock = new object();
 
-        public AsyncGraphics(Bitmap bitmap) {
-            m_Bitmap = bitmap ?? throw new System.ArgumentNullException("Invalid bitmap");
-            m_Graphics = Graphics.FromImage(m_Bitmap);
+        public AsyncGraphics(Image<Rgba32> image) {
+            m_Image = image ?? throw new System.ArgumentNullException("Invalid image");
         }
-        
+
         public void DrawImage(Image image, int x, int y) => m_DrawTasks.Add(Task.Run(() => InternalDraw(image, x, y)));
         public void DrawImage(Image image, Point point) => m_DrawTasks.Add(Task.Run(() => InternalDraw(image, point.X, point.Y)));
         public void DrawImage(Image image, int x, int y, int w, int h) => m_DrawTasks.Add(Task.Run(() => InternalDraw(image, x, y, w, h)));
@@ -37,29 +37,27 @@ namespace OpenTibiaUnity
 
         void InternalDraw(Image image, int x, int y) {
             lock (m_DrawLock) {
-                m_Graphics.DrawImage(image, x, y);
+                m_Image.Mutate(ctx => ctx.DrawImage(image, new Point(x, y), 1f));
                 image.Dispose();
             }
         }
 
         void InternalDraw(Image image, int x, int y, int w, int h) {
-            lock (m_DrawLock) {
-                m_Graphics.DrawImage(image, x, y, w, h);
-                image.Dispose();
-            }
+            if (image.Width != w || image.Height != h)
+                image.Mutate(ctx => ctx.Resize(w, h));
+            InternalDraw(image, x, y);
         }
 
-        public async Task DisposeOnDone(IEnumerable<Bitmap> bitmaps) {
+        public async Task DisposeOnDone(IEnumerable<Image<Rgba32>> images) {
             await Task.WhenAll(m_DrawTasks);
-            foreach (var bitmap in bitmaps)
-                bitmap.Dispose();
+            foreach (var image in images)
+                image?.Dispose();
         }
 
         public async Task SaveAndDispose(string filename) {
             await Task.WhenAll(m_DrawTasks);
-            m_Bitmap.Save(filename);
-            m_Bitmap.Dispose();
-            m_Graphics.Dispose();
+            m_Image.Save(filename);
+            m_Image.Dispose();
         }
     }
 }

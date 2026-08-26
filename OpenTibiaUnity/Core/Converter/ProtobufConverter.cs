@@ -3,10 +3,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
 
 namespace OpenTibiaUnity.Core.Converter
 {
@@ -103,10 +102,9 @@ namespace OpenTibiaUnity.Core.Converter
                         decoder.Code(input, spriteBuffer, input.Length - input.Position, 0x100000, null);
 
                         spriteBuffer.Position = 0;
-                        var image = Image.FromStream(spriteBuffer);
-
+                        using (var image = Image.Load(spriteBuffer))
                         using (MemoryStream tmpStream = new MemoryStream()) {
-                            image.Save(tmpStream, ImageFormat.Png);
+                            image.SaveAsPng(tmpStream);
 
                             uint length = (uint)tmpStream.Length;
                             tmpStream.Position = 0;
