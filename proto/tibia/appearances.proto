@@ -1,0 +1,190 @@
+// Recovered from the descriptor embedded in Tibia/Protobuf/Appearances.cs (originally appearances.proto).
+syntax = "proto3";
+package tibia.protobuf.appearances;
+
+import "tibia/shared.proto";
+
+message Appearances {
+	repeated Appearance object = 1;
+	repeated Appearance outfit = 2;
+	repeated Appearance effect = 3;
+	repeated Appearance missile = 4;
+	SpecialMeaningAppearanceIds special_meaning_appearance_ids = 5;
+}
+
+message SpritePhase {
+	uint32 duration_min = 1;
+	uint32 duration_max = 2;
+}
+
+message SpriteAnimation {
+	uint32 default_start_phase = 1;
+	bool synchronized = 2;
+	bool random_start_phase = 3;
+	tibia.protobuf.shared.ANIMATION_LOOP_TYPE loop_type = 4;
+	uint32 loop_count = 5;
+	repeated SpritePhase sprite_phase = 6;
+}
+
+message Box {
+	uint32 x = 1;
+	uint32 y = 2;
+	uint32 width = 3;
+	uint32 height = 4;
+}
+
+message SpriteInfo {
+	uint32 pattern_width = 1;
+	uint32 pattern_height = 2;
+	uint32 pattern_depth = 3;
+	uint32 layers = 4;
+	repeated uint32 sprite_id = 5;
+	uint32 bounding_square = 7;
+	SpriteAnimation animation = 6;
+	bool is_opaque = 8;
+	repeated Box bounding_box_per_direction = 9;
+}
+
+message FrameGroup {
+	FIXED_FRAME_GROUP fixed_frame_group = 1;
+	uint32 id = 2;
+	SpriteInfo sprite_info = 3;
+}
+
+message Appearance {
+	uint32 id = 1;
+	repeated FrameGroup frame_group = 2;
+	AppearanceFlags flags = 3;
+	string name = 4;
+}
+
+message AppearanceFlags {
+	AppearanceFlagBank bank = 1;
+	bool clip = 2;
+	bool bottom = 3;
+	bool top = 4;
+	bool container = 5;
+	bool cumulative = 6;
+	bool usable = 7;
+	bool forceuse = 8;
+	bool multiuse = 9;
+	AppearanceFlagWrite write = 10;
+	AppearanceFlagWriteOnce write_once = 11;
+	bool liquidpool = 12;
+	bool unpass = 13;
+	bool unmove = 14;
+	bool unsight = 15;
+	bool avoid = 16;
+	bool no_movement_animation = 17;
+	bool take = 18;
+	bool liquidcontainer = 19;
+	bool hang = 20;
+	AppearanceFlagHook hook = 21;
+	bool rotate = 22;
+	AppearanceFlagLight light = 23;
+	bool dont_hide = 24;
+	bool translucent = 25;
+	AppearanceFlagShift shift = 26;
+	AppearanceFlagHeight height = 27;
+	bool lying_object = 28;
+	bool animate_always = 29;
+	AppearanceFlagAutomap automap = 30;
+	AppearanceFlagLenshelp lenshelp = 31;
+	bool fullbank = 32;
+	bool ignore_look = 33;
+	AppearanceFlagClothes clothes = 34;
+	AppearanceFlagDefaultAction default_action = 35;
+	AppearanceFlagMarket market = 36;
+	bool wrap = 37;
+	bool unwrap = 38;
+	bool topeffect = 39;
+	repeated AppearanceFlagNPC npcsaledata = 40;
+	AppearanceFlagChangedToExpire changedtoexpire = 41;
+	bool corpse = 42;
+	bool player_corpse = 43;
+	AppearanceFlagCyclopedia cyclopediaitem = 44;
+}
+
+message AppearanceFlagBank {
+	uint32 waypoints = 1;
+}
+
+message AppearanceFlagWrite {
+	uint32 max_text_length = 1;
+}
+
+message AppearanceFlagWriteOnce {
+	uint32 max_text_length_once = 1;
+}
+
+message AppearanceFlagLight {
+	uint32 brightness = 1;
+	uint32 color = 2;
+}
+
+message AppearanceFlagHeight {
+	uint32 elevation = 1;
+}
+
+message AppearanceFlagShift {
+	uint32 x = 1;
+	uint32 y = 2;
+}
+
+message AppearanceFlagClothes {
+	uint32 slot = 1;
+}
+
+message AppearanceFlagDefaultAction {
+	tibia.protobuf.shared.PLAYER_ACTION action = 1;
+}
+
+message AppearanceFlagMarket {
+	tibia.protobuf.shared.ITEM_CATEGORY category = 1;
+	uint32 trade_as_object_id = 2;
+	uint32 show_as_object_id = 3;
+	repeated tibia.protobuf.shared.PLAYER_PROFESSION restrict_to_profession = 5;
+	uint32 minimum_level = 6;
+}
+
+message AppearanceFlagNPC {
+	string name = 1;
+	string location = 2;
+	uint32 sale_price = 3;
+	uint32 buy_price = 4;
+}
+
+message AppearanceFlagAutomap {
+	uint32 color = 1;
+}
+
+message AppearanceFlagHook {
+	tibia.protobuf.shared.HOOK_TYPE direction = 1;
+}
+
+message AppearanceFlagLenshelp {
+	uint32 id = 1;
+}
+
+message AppearanceFlagChangedToExpire {
+	uint32 former_object_typeid = 1;
+}
+
+message AppearanceFlagCyclopedia {
+	uint32 cyclopedia_type = 1;
+}
+
+message SpecialMeaningAppearanceIds {
+	uint32 gold_coin_id = 1;
+	uint32 platinum_coin_id = 2;
+	uint32 crystal_coin_id = 3;
+	uint32 tibia_coin_id = 4;
+	uint32 stamped_letter_id = 5;
+	uint32 supply_stash_id = 6;
+}
+
+enum FIXED_FRAME_GROUP {
+	FIXED_FRAME_GROUP_OUTFIT_IDLE = 0;
+	FIXED_FRAME_GROUP_OUTFIT_MOVING = 1;
+	FIXED_FRAME_GROUP_OBJECT_INITIAL = 2;
+}
